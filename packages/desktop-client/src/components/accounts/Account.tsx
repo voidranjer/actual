@@ -7,7 +7,7 @@ import React, {
   useEffect,
 } from 'react';
 import { Trans } from 'react-i18next';
-import { Navigate, useParams, useLocation } from 'react-router';
+import { Navigate, useParams, useLocation, useSearchParams } from 'react-router';
 
 import { styles } from '@actual-app/components/styles';
 import { theme } from '@actual-app/components/theme';
@@ -392,6 +392,42 @@ class AccountInternal extends PureComponent<
     if (lastUndoEvent) {
       onUndo(lastUndoEvent);
     }
+
+    window.addEventListener('message', async (e: MessageEvent) => {
+      if (e.data.name === 'openbanker-transactions-csv-response') {
+        // see browser-preload.browser.js --> window.__actionsForMenu.uploadFile()
+        // const filename = "/uploads/openbanker-transactions-import.csv"
+
+        const csvContent = new TextEncoder().encode(e.data.transactions);
+
+        // IMPORTANT: remove event listener unmount
+        await window.__actionsForMenu.uploadFile(
+          'openbanker-transactions-import.csv',
+          csvContent.buffer,
+        );
+
+        const accountId = this.props.accountId;
+
+        if (accountId) {
+          this.props.dispatch(
+            pushModal({
+              modal: {
+                name: 'import-transactions',
+                options: {
+                  accountId,
+                  filename: '/uploads/openbanker-transactions-import.csv',
+                  onImported: (didChange: boolean) => {
+                    if (didChange) {
+                      this.fetchTransactions();
+                    }
+                  },
+                },
+              },
+            }),
+          );
+        }
+      }
+    });
   }
 
   componentDidUpdate(prevProps: AccountInternalProps) {
@@ -614,6 +650,10 @@ class AccountInternal extends PureComponent<
         }
       }
     }
+  };
+
+  openImportOpenBanker = async () => {
+    window.postMessage({ name: 'openbanker-transactions-csv-request' });
   };
 
   onExport = async (accountName: string) => {
@@ -1817,6 +1857,7 @@ class AccountInternal extends PureComponent<
                 }
                 onSync={this.onSync}
                 onImport={this.onImport}
+                openImportOpenBanker={this.openImportOpenBanker}
                 onBatchDelete={this.onBatchDelete}
                 onBatchDuplicate={this.onBatchDuplicate}
                 onRunRules={this.onRunRules}
@@ -1963,6 +2004,9 @@ function AccountHack(props: AccountHackProps) {
 export function Account() {
   const params = useParams();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const dispatch = useDispatch();
 
   const { grouped: categoryGroups } = useCategories();
   const newTransactions = useSelector(
@@ -2002,6 +2046,34 @@ export function Account() {
     () => getSchedulesQuery(params.id),
     [params.id],
   );
+
+  useEffect(() => {
+    async function syncOpenBanker() {
+      if (searchParams.get('openBankerSync') === 'true') {
+
+        if (params.id === undefined) {
+          const accounts = await send('accounts-get') as unknown as AccountEntity[];
+          window.postMessage({ name: 'openbanker-sync-accounts', accounts: accounts.map(a => ({name: a.name, id: a.id})) })
+
+          // TODO: listen for response from bridge before confirming import
+          dispatch(
+            addNotification({
+              notification: {
+                type: 'message',
+                message: t('OpenBanker sync completed successfully.'),
+              },
+            }),
+          );
+        } else {
+          // TODO: setSearchParams to clear it on success
+          window.postMessage({ name: 'openbanker-transactions-csv-request' });
+        }
+
+      }
+    }
+    syncOpenBanker();
+
+  }, [searchParams])
 
   return (
     <SchedulesProvider query={schedulesQuery}>

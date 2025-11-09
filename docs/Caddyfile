@@ -1,0 +1,16 @@
+actual.amperleft.com {
+    # This enables the cross-origin isolated state required for SharedArrayBuffer
+    header {
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Embedder-Policy "require-corp"
+    }
+
+    root * build/
+    try_files {path} /index.html # Needed for SPA routing (React Router)
+    file_server
+
+    # reverse_proxy 127.0.0.1:3001
+
+    # tls cert.pem key.pem
+    # tls internal
+}

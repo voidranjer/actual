@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { theme } from '@actual-app/components/theme';
@@ -71,6 +71,12 @@ export function Accounts() {
   const onToggleClosedAccounts = () => {
     setShowClosedAccountsPref(!showClosedAccounts);
   };
+
+
+  /* OpenBanker */
+  useEffect(() => {
+    window.postMessage({ name: 'openbanker-sync-accounts', accounts: accounts.map(a => ({ name: a.name, id: a.id })) })
+  }, [accounts])
 
   return (
     <View

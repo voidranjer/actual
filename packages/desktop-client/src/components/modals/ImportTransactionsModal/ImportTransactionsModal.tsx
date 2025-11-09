@@ -330,7 +330,7 @@ export function ImportTransactionsModal({
 
           current_trx.tombstone = entry?.tombstone || false;
 
-          current_trx.selected = !current_trx.ignored;
+          current_trx.selected = !current_trx.ignored && !current_trx.existing; // TODO: make a general "Select All" header checkbox
           current_trx.selected_merge = current_trx.existing;
 
           next = next.concat({ ...current_trx });
